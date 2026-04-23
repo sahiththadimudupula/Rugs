@@ -18,6 +18,23 @@ def render_cards(summary: dict[str, float], final_label: str = "Final Manpower")
     """, unsafe_allow_html=True)
 
 
+
+
+def arrow_safe_df(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return df
+    safe_df = df.copy()
+    for col in safe_df.columns:
+        series = safe_df[col]
+        if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+            non_null = series.dropna()
+            if non_null.empty:
+                continue
+            type_names = {type(v).__name__ for v in non_null.tolist()}
+            if len(type_names) > 1:
+                safe_df[col] = series.map(lambda x: '' if pd.isna(x) else str(x))
+    return safe_df
+
 def render_bottom_actions(state: dict, key_prefix: str):
     st.markdown('<div class="bottom-actions-spacer"></div>', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
@@ -175,7 +192,7 @@ def render_ppc_tab(state: dict):
     st.caption('Edit only base PPC rows. Calculated rows will refresh automatically.')
     edited_df = st.data_editor(state['ppc_df'], key='ppc_editor', width='stretch', height=620, hide_index=True, disabled=['Main_Group', 'Sub_Group', 'Category', 'Subcategory', 'row_type', 'row_order'])
     sync_ppc_changes(state, edited_df)
-    st.dataframe(add_total_row(state['ppc_df'].drop(columns=['row_order'])), width='stretch', hide_index=True)
+    st.dataframe(arrow_safe_df(add_total_row(state['ppc_df'].drop(columns=['row_order']))), width='stretch', hide_index=True)
     render_bottom_actions(state, 'ppc')
 
 
@@ -187,7 +204,7 @@ def render_generic_section_tab(state: dict, sections: list[str], tab_key: str):
         render_bottom_actions(state, tab_key)
         return
     compact = df[['Section', 'Dept_Machine_Name', 'Designation', 'Machine_Count', 'BE_Final_Manpower']]
-    st.dataframe(add_total_row(compact), width='stretch', hide_index=True)
+    st.dataframe(arrow_safe_df(add_total_row(compact)), width='stretch', hide_index=True)
     for section_name in df['Section'].drop_duplicates().tolist():
         part = df[df['Section'] == section_name].copy()
         with st.expander(section_name, expanded=False):
@@ -201,10 +218,10 @@ def render_coating_tab(state: dict):
     st.subheader('Coating Helper')
     helper_edit = st.data_editor(state['coating_df'], key='coating_helper_editor', width='stretch', height=420, hide_index=True, disabled=['Parameter', 'Material', 'row_type', 'row_order'])
     sync_coating_changes(state, helper_edit)
-    st.dataframe(add_total_row(state['coating_df'].drop(columns=['row_order'])), width='stretch', hide_index=True)
+    st.dataframe(arrow_safe_df(add_total_row(state['coating_df'].drop(columns=['row_order']))), width='stretch', hide_index=True)
     st.subheader('Coating Manpower')
     render_master_editor(state, df, 'coating_master_editor')
-    st.dataframe(add_total_row(df[['Section', 'Sr_No', 'Dept_Machine_Name', 'Designation', 'Machine_Count', 'BE_Scientific_Manpower', 'BE_Final_Manpower']]), width='stretch', hide_index=True)
+    st.dataframe(arrow_safe_df(add_total_row(df[['Section', 'Sr_No', 'Dept_Machine_Name', 'Designation', 'Machine_Count', 'BE_Scientific_Manpower', 'BE_Final_Manpower']])), width='stretch', hide_index=True)
     render_bottom_actions(state, 'coating')
 
 
@@ -212,9 +229,9 @@ def render_cut_and_sew_tab(state: dict):
     df = apply_master_filters(section_df(state, [CUT_AND_SEW_SECTION]), 'cutandsew', show_section_filter=False)
     render_cards(build_summary(df))
     st.subheader('Capacity')
-    st.dataframe(add_total_row(state['capacity_df'].drop(columns=['row_order'])), width='stretch', hide_index=True)
+    st.dataframe(arrow_safe_df(add_total_row(state['capacity_df'].drop(columns=['row_order']))), width='stretch', hide_index=True)
     st.subheader('CS')
-    st.dataframe(add_total_row(state['cs_df'].drop(columns=['row_order'])), width='stretch', hide_index=True)
+    st.dataframe(arrow_safe_df(add_total_row(state['cs_df'].drop(columns=['row_order']))), width='stretch', hide_index=True)
     st.subheader('Cut & Sew Manpower')
     render_master_editor(state, df, 'cut_sew_master_editor')
     render_bottom_actions(state, 'cutsew')
@@ -226,7 +243,7 @@ def render_dyeing_tab(state: dict):
     st.subheader('Dyeing Driver Inputs')
     driver_edit = st.data_editor(state['dye_inputs_df'], key='dye_inputs_editor', width='stretch', hide_index=True, disabled=['Input', 'key', 'Source'])
     sync_dye_input_changes(state, driver_edit)
-    st.dataframe(add_total_row(state['dye_inputs_df'][['Input', 'Value']]), width='stretch', hide_index=True)
+    st.dataframe(arrow_safe_df(add_total_row(state['dye_inputs_df'][['Input', 'Value']])), width='stretch', hide_index=True)
     st.subheader('EZM / Paddle Machine Master')
     ezm_edit = st.data_editor(state['dye_ezm_df'], key='dye_ezm_editor', width='stretch', hide_index=True)
     sync_dye_ezm_changes(state, ezm_edit)
@@ -234,17 +251,17 @@ def render_dyeing_tab(state: dict):
     left, right = st.columns(2)
     with left:
         st.caption('Final Summary')
-        st.dataframe(add_total_row(ezm_out.get('final_summary_table', pd.DataFrame())), width='stretch', hide_index=True)
+        st.dataframe(arrow_safe_df(add_total_row(ezm_out.get('final_summary_table', pd.DataFrame()))), width='stretch', hide_index=True)
     with right:
         st.caption('Production Summary')
-        st.dataframe(add_total_row(ezm_out.get('production_summary_table', pd.DataFrame())), width='stretch', hide_index=True)
+        st.dataframe(arrow_safe_df(add_total_row(ezm_out.get('production_summary_table', pd.DataFrame()))), width='stretch', hide_index=True)
     left2, right2 = st.columns(2)
     with left2:
         st.caption('Drylon Selected Machines')
-        st.dataframe(add_total_row(ezm_out.get('drylon_selected_table', pd.DataFrame())), width='stretch', hide_index=True)
+        st.dataframe(arrow_safe_df(add_total_row(ezm_out.get('drylon_selected_table', pd.DataFrame()))), width='stretch', hide_index=True)
     with right2:
         st.caption('Cotton Selected Machines')
-        st.dataframe(add_total_row(ezm_out.get('cotton_selected_table', pd.DataFrame())), width='stretch', hide_index=True)
+        st.dataframe(arrow_safe_df(add_total_row(ezm_out.get('cotton_selected_table', pd.DataFrame()))), width='stretch', hide_index=True)
     st.subheader('Jet Dyeing Machine Table')
     jet_edit = st.data_editor(state['dye_jet_df'], key='dye_jet_editor', width='stretch', hide_index=True)
     sync_dye_jet_changes(state, jet_edit)
@@ -252,16 +269,16 @@ def render_dyeing_tab(state: dict):
     left3, right3 = st.columns(2)
     with left3:
         st.caption('Option 1 - Closest With Minimum Machines')
-        st.dataframe(add_total_row(jet_out.get('option1_summary', pd.DataFrame())), width='stretch', hide_index=True)
-        st.dataframe(add_total_row(jet_out.get('option1_table', pd.DataFrame())), width='stretch', hide_index=True)
+        st.dataframe(arrow_safe_df(add_total_row(jet_out.get('option1_summary', pd.DataFrame()))), width='stretch', hide_index=True)
+        st.dataframe(arrow_safe_df(add_total_row(jet_out.get('option1_table', pd.DataFrame()))), width='stretch', hide_index=True)
     with right3:
         st.caption('Option 2 - New Machine Preference')
-        st.dataframe(add_total_row(jet_out.get('option2_summary', pd.DataFrame())), width='stretch', hide_index=True)
-        st.dataframe(add_total_row(jet_out.get('option2_table', pd.DataFrame())), width='stretch', hide_index=True)
+        st.dataframe(arrow_safe_df(add_total_row(jet_out.get('option2_summary', pd.DataFrame()))), width='stretch', hide_index=True)
+        st.dataframe(arrow_safe_df(add_total_row(jet_out.get('option2_table', pd.DataFrame()))), width='stretch', hide_index=True)
     st.subheader('Hydro Helper')
     helper_edit = st.data_editor(state['hydro_df'].drop(columns=['row_order']), key='hydro_editor', width='stretch', height=180, hide_index=True)
     sync_hydro_changes(state, helper_edit)
-    st.dataframe(add_total_row(state['hydro_df'].drop(columns=['row_order'])), width='stretch', hide_index=True)
+    st.dataframe(arrow_safe_df(add_total_row(state['hydro_df'].drop(columns=['row_order']))), width='stretch', hide_index=True)
     st.subheader('Dyeing Manpower')
     render_master_editor(state, dyeing_df, 'dyeing_master_editor')
     render_bottom_actions(state, 'dyeing')
@@ -273,16 +290,16 @@ def render_packintqm_tab(state: dict):
     st.subheader('Packin&TQM Helper Source Table')
     if state.get('packing_tqm_source_df') is not None:
         src = state['packing_tqm_source_df'].drop(columns=[c for c in ['row_order','row_id'] if c in state['packing_tqm_source_df'].columns], errors='ignore')
-        st.dataframe(add_total_row(src), width='stretch', hide_index=True)
+        st.dataframe(arrow_safe_df(add_total_row(src)), width='stretch', hide_index=True)
     st.subheader('Packin&TQM Draft Table')
     draft_df = state.get('packing_tqm_draft_calc_df')
     if draft_df is None or getattr(draft_df, 'empty', False) and state.get('packing_tqm_draft_source_df') is not None:
         draft_df = state.get('packing_tqm_draft_source_df')
     if draft_df is not None:
-        st.dataframe(add_total_row(draft_df.drop(columns=[c for c in ['row_order','row_id'] if c in draft_df.columns], errors='ignore')), width='stretch', hide_index=True)
+        st.dataframe(arrow_safe_df(add_total_row(draft_df.drop(columns=[c for c in ['row_order','row_id'] if c in draft_df.columns], errors='ignore'))), width='stretch', hide_index=True)
     st.subheader('Calculated Helper Table')
     if state.get('packing_tqm_helper_df') is not None:
-        st.dataframe(add_total_row(state['packing_tqm_helper_df'].drop(columns=[c for c in ['row_order','row_id'] if c in state['packing_tqm_helper_df'].columns], errors='ignore')), width='stretch', hide_index=True)
+        st.dataframe(arrow_safe_df(add_total_row(state['packing_tqm_helper_df'].drop(columns=[c for c in ['row_order','row_id'] if c in state['packing_tqm_helper_df'].columns], errors='ignore'))), width='stretch', hide_index=True)
     st.subheader('Linked Packin&TQM Manpower')
     render_master_editor(state, df, 'packintqm_master_editor')
     render_bottom_actions(state, 'packintqm')
@@ -292,5 +309,5 @@ def render_final_master_tab(state: dict):
     df = apply_master_filters(state['master_df'].copy(), 'finalmaster', show_section_filter=True)
     render_cards(build_summary(df))
     render_master_editor(state, df.copy(), 'final_master_editor')
-    st.dataframe(add_total_row(df.drop(columns=['row_order', 'row_id'])), width='stretch', hide_index=True)
+    st.dataframe(arrow_safe_df(add_total_row(df.drop(columns=['row_order', 'row_id']))), width='stretch', hide_index=True)
     render_bottom_actions(state, 'finalmaster')

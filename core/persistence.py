@@ -5,6 +5,10 @@ import pandas as pd
 from config.settings import INPUT_FILE, WORKING_FILE
 
 
+def _ensure_output_dir():
+    WORKING_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+
 def current_workbook_path():
     return WORKING_FILE if WORKING_FILE.exists() else INPUT_FILE
 
@@ -65,6 +69,7 @@ def _write_packintqm_sheet(ws, state: dict):
 
 
 def save_snapshot(state: dict):
+    _ensure_output_dir()
     wb = openpyxl.load_workbook(current_workbook_path())
     for sheet_name, df in build_sheet_frames(state).items():
         if sheet_name not in wb.sheetnames:
@@ -77,6 +82,7 @@ def save_snapshot(state: dict):
 
 
 def workbook_bytes(state: dict) -> bytes:
+    _ensure_output_dir()
     wb = openpyxl.load_workbook(current_workbook_path())
     for sheet_name, df in build_sheet_frames(state).items():
         if sheet_name not in wb.sheetnames:
