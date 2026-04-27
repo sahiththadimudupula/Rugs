@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from core.persistence import load_raw_sheets
+from core.persistence import load_raw_sheets, current_workbook_path
 from core.sheet_parser import parse_ppc, parse_capacity, parse_coating, parse_cs, parse_hydro, parse_master, parse_packintqm
 from core.registries import init_nodes, build_row_rules, init_manual_overrides
 from engines.pipeline import recalc_all
@@ -10,6 +10,7 @@ from engines.dyeing import build_default_dye_inputs_df, build_default_ezm_paddle
 def bootstrap_state() -> dict:
     raw = load_raw_sheets()
     state = {
+        "using_working_file": current_workbook_path().name == 'Rugs_working.xlsx',
         "ppc_df": parse_ppc(raw["Packing"]),
         "capacity_df": parse_capacity(raw["Capacity"]),
         "coating_df": parse_coating(raw["Coating"]),
@@ -36,7 +37,18 @@ def bootstrap_state() -> dict:
         "dye_ezm_df": state["dye_ezm_df"].copy(deep=True),
         "dye_jet_df": state["dye_jet_df"].copy(deep=True),
     }
+    state["dirty"] = {
+        "capacity": False,
+        "coating": False,
+        "cs": False,
+        "hydro": False,
+        "dyeing": False,
+        "packintqm": False,
+        "master": False,
+    }
     recalc_all(state)
+    state["download_bytes"] = None
+    state["download_dirty"] = True
     for key in list(state["snapshots"].keys()):
         state["snapshots"][key] = state[key].copy(deep=True)
     return state

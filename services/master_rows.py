@@ -74,6 +74,7 @@ def rebuild_master_row(state: dict, row_id: str) -> None:
 def apply_master_edit(state: dict, row_id: str, field_name: str, new_value) -> None:
     idx = state["master_index"][row_id]
     state["master_df"].at[idx, field_name] = new_value
+    state['download_dirty'] = True
     if field_name == "Machine_Count":
         state["overrides"][row_id]["machine"] = True
         rebuild_master_row(state, row_id)

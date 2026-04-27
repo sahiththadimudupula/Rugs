@@ -23,6 +23,93 @@ def recalc_all(state: dict) -> None:
     recalc_packintqm(state)
     sync_frames(state)
     rebuild_linked_master_rows(state)
+    state.setdefault("dirty", {})
+    for key in ["capacity", "coating", "cs", "hydro", "dyeing", "packintqm", "master"]:
+        state["dirty"][key] = False
+
+
+def ensure_capacity_current(state: dict) -> None:
+    dirty = state.setdefault("dirty", {})
+    if not dirty.get("capacity", False):
+        return
+    recalc_capacity(state)
+    sync_frames(state)
+    dirty["capacity"] = False
+
+
+def ensure_coating_current(state: dict) -> None:
+    dirty = state.setdefault("dirty", {})
+    ensure_capacity_current(state)
+    if not dirty.get("coating", False):
+        return
+    recalc_coating(state)
+    sync_frames(state)
+    for row_id in COATING_ROWS:
+        rebuild_master_row(state, row_id)
+    dirty["coating"] = False
+    dirty["master"] = True
+
+
+def ensure_cs_current(state: dict) -> None:
+    dirty = state.setdefault("dirty", {})
+    ensure_capacity_current(state)
+    if not dirty.get("cs", False):
+        return
+    recalc_cs(state)
+    sync_frames(state)
+    for row_id in CUT_AND_SEW_ROWS:
+        rebuild_master_row(state, row_id)
+    dirty["cs"] = False
+    dirty["master"] = True
+
+
+def ensure_hydro_current(state: dict) -> None:
+    dirty = state.setdefault("dirty", {})
+    ensure_capacity_current(state)
+    if not dirty.get("hydro", False):
+        return
+    recalc_hydro(state)
+    sync_frames(state)
+    if "master.dyeing.sr_10" in DYEING_ROWS:
+        rebuild_master_row(state, "master.dyeing.sr_10")
+    dirty["hydro"] = False
+    dirty["master"] = True
+
+
+def ensure_dyeing_current(state: dict) -> None:
+    dirty = state.setdefault("dirty", {})
+    ensure_capacity_current(state)
+    ensure_cs_current(state)
+    ensure_hydro_current(state)
+    if not dirty.get("dyeing", False):
+        return
+    recalc_dyeing(state)
+    sync_frames(state)
+    for row_id in ["master.dyeing.sr_1", "master.dyeing.sr_4", "master.dyeing.sr_5", "master.dyeing.sr_10"]:
+        rebuild_master_row(state, row_id)
+    dirty["dyeing"] = False
+    dirty["master"] = True
+
+
+def ensure_packintqm_current(state: dict) -> None:
+    dirty = state.setdefault("dirty", {})
+    ensure_capacity_current(state)
+    if not dirty.get("packintqm", False):
+        return
+    recalc_packintqm(state)
+    for row_id in PACKING_TQM_ROWS:
+        if row_id in state["master_index"]:
+            rebuild_master_row(state, row_id)
+    dirty["packintqm"] = False
+    dirty["master"] = True
+
+
+def ensure_everything_current(state: dict) -> None:
+    ensure_coating_current(state)
+    ensure_cs_current(state)
+    ensure_hydro_current(state)
+    ensure_dyeing_current(state)
+    ensure_packintqm_current(state)
 
 
 def recalc_ppc(state: dict) -> None:
